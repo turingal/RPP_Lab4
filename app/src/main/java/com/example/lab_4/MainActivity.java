@@ -1,54 +1,78 @@
 package com.example.lab_4;
 
+import android.app.PendingIntent;
+import android.appwidget.AppWidgetManager;
+import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.content.Intent;
-import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
-import android.widget.TextView;
+import android.widget.RemoteViews;
 
-import java.util.Calendar;
+import com.example.lab_4.database.Alarm;
+import com.example.lab_4.database.AlarmDao;
+import com.example.lab_4.database.AppDatabase;
+import com.example.lab_4.database.DBProvider;
 
-import static java.lang.System.currentTimeMillis;
+import java.util.List;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppWidgetProvider {
+
+    public static String ACTION_WIDGET_RECEIVER = "ActionReceiverWidget";
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+    public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
 
-        Intent intent = getIntent();
+        for (int id: appWidgetIds) {
 
-        long date = intent.getLongExtra("date", 0);
+            RemoteViews remoteViews = new RemoteViews(context.getPackageName(), R.layout.widget);
 
-        String days = "Дата пока не установлена";
+            AppDatabase db = DBProvider.getInstance().getDatabase();
+            AlarmDao dao = db.alarmDao();
 
-        if(date != 0){
+            List<Alarm> l = dao.getAll();
 
-            long cur_date = System.currentTimeMillis();
-            System.out.println(cur_date + " " + date);
+            Alarm alarm = dao.getByIdWidget(id);
 
-            int days1 = (int) Math.floor((date - cur_date)/(1000*60*60*24));
-            System.out.println("lasbvlajbhdl"+(date - cur_date));
-            days = String.valueOf(days1) + " полных суток осталось до оповещения";
-        }
+            if (alarm != null) {
+                long date = alarm.time;
 
-        TextView tv = findViewById(R.id.amount_days);
-        tv.setText(days);
 
-        final Context ctx = this;
+                String days = "";
+                long cur_date = System.currentTimeMillis();
+                System.out.println(cur_date + " " + date);
 
-        TextView btn = findViewById(R.id.amount_days);
+                int days1 = (int) Math.floor((date - cur_date) / (1000 * 60 * 60 * 24));
 
-        btn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Intent intent = new Intent(ctx, ChoosingDate.class);
-                ctx.startActivity(intent);
-                finish();
+                days = String.valueOf(days1) + " полных суток осталось до оповещения";
+
+                remoteViews.setTextViewText(R.id.tv, days);
+            } else {
+
+                System.out.println("SDfgkjsdngkjnfkjn");
             }
-        });
+
+            //Подготавливаем Intent для Broadcast
+            Intent active = new Intent(context, MainActivity.class);
+            active.setAction(ACTION_WIDGET_RECEIVER);
+
+            PendingIntent actionPendingIntent = PendingIntent.getBroadcast(context, 0, active, 0);
+
+            remoteViews.setOnClickPendingIntent(R.id.tv, actionPendingIntent);
+
+            appWidgetManager.updateAppWidget(id, remoteViews);
+
+        }
+    }
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+
+
+        final String action = intent.getAction();
+        if (ACTION_WIDGET_RECEIVER.equals(action)) {
+            Intent iintent = new Intent(context, ChoosingDate.class);
+            iintent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(iintent);
+        }
+        super.onReceive(context, intent);
     }
 }
